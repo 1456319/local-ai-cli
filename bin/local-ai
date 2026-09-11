@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+PYTHONPATH="/home/deck/.local/share/local-ai:${PYTHONPATH}" exec python3 -m localai_core.cli "$@"
