@@ -394,6 +394,30 @@ class TestCLIMain(unittest.TestCase):
             out = self.out_stream.getvalue()
             self.assertIn("http://override-host:9999", out)
 
+    def test_timeout_override_flag(self):
+        with patch.object(LocalAIClient, "__init__", return_value=None) as mock_init:
+            with patch.object(LocalAIClient, "list_models", return_value=["m1"]):
+                code = main(
+                    ["--timeout", "240", "-c", self.config_path, "models"],
+                    out_stream=self.out_stream,
+                    err_stream=self.err_stream,
+                )
+                self.assertEqual(code, 0)
+                _, kwargs = mock_init.call_args
+                self.assertEqual(kwargs.get("timeout"), 240)
+
+    def test_config_set_timeout(self):
+        code = main(
+            ["-c", self.config_path, "config", "set-timeout", "150"],
+            out_stream=self.out_stream,
+            err_stream=self.err_stream,
+        )
+        self.assertEqual(code, 0)
+        out = self.out_stream.getvalue()
+        self.assertIn("150s", out)
+        mgr = ConfigManager(config_path=self.config_path)
+        self.assertEqual(mgr.get_timeout(), 150)
+
 
 class TestLauncherScript(unittest.TestCase):
     """Verify /home/deck/bin/local-ai script formatting, permissions, and execution."""

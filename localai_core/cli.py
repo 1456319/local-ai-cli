@@ -29,6 +29,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--config",
         help="Path to configuration file",
     )
+    parser.add_argument(
+        "-T",
+        "--timeout",
+        type=int,
+        help="Override HTTP request and streaming timeout in seconds",
+    )
 
     subparsers = parser.add_subparsers(
         dest="subcommand",
@@ -63,6 +69,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.7,
         help="Sampling temperature (default: 0.7)",
     )
+    parser_run.add_argument(
+        "-T",
+        "--timeout",
+        type=int,
+        help="Request and streaming timeout in seconds",
+    )
 
     # chat subcommand
     parser_chat = subparsers.add_parser(
@@ -78,6 +90,12 @@ def build_parser() -> argparse.ArgumentParser:
         "-s",
         "--system",
         help="Optional system prompt",
+    )
+    parser_chat.add_argument(
+        "-T",
+        "--timeout",
+        type=int,
+        help="Request and streaming timeout in seconds",
     )
 
     # goal subcommand
@@ -105,6 +123,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--autonomous",
         action="store_true",
         help="Autonomous mode (do not ask for confirmation on tool execution)",
+    )
+    parser_goal.add_argument(
+        "-T",
+        "--timeout",
+        type=int,
+        help="Request and streaming timeout in seconds",
     )
 
     # models subcommand (with list-models alias)
@@ -149,6 +173,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser_set_model.add_argument(
         "model",
         help="New default model name",
+    )
+    parser_set_timeout = config_subparsers.add_parser(
+        "set-timeout",
+        help="Set default request timeout in seconds",
+    )
+    parser_set_timeout.add_argument(
+        "timeout",
+        type=int,
+        help="New timeout in seconds",
     )
 
     return parser
@@ -256,7 +289,12 @@ def main(
     # Initialize ConfigManager and LocalAIClient
     config_mgr = ConfigManager(config_path=args.config)
     url = config_mgr.get_url(cli_override=args.url)
-    client = LocalAIClient(config_manager=config_mgr, base_url=url)
+    cli_timeout = getattr(args, "timeout", None)
+    client = LocalAIClient(
+        config_manager=config_mgr,
+        base_url=url,
+        timeout=cli_timeout if cli_timeout is not None else config_mgr.get_timeout(),
+    )
 
     # Subcommand: run
     if args.subcommand == "run":
@@ -382,6 +420,13 @@ def main(
             config_mgr.set_default_model(args.model)
             out_stream.write(
                 f"Updated default model to: {config_mgr.get_default_model()}\n"
+            )
+            out_stream.flush()
+            return 0
+        elif action == "set-timeout":
+            config_mgr.set_timeout(args.timeout)
+            out_stream.write(
+                f"Updated default timeout to: {config_mgr.get_timeout()}s\n"
             )
             out_stream.flush()
             return 0

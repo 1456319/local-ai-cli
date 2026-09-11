@@ -249,6 +249,7 @@ class ChatSession:
                             break
                         user_input = line.strip()
                     else:
+                        self.out_stream.flush()
                         user_input = input(">>> ").strip()
                 except EOFError:
                     self.out_stream.write("\nGoodbye!\n")

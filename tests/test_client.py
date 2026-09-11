@@ -209,6 +209,67 @@ class TestLocalAIClient(unittest.TestCase):
             tokens = list(client.chat_completion([{"role": "user", "content": "test"}], stream=True))
             self.assertEqual(tokens, ["Streaming"])
 
+    def test_chat_completion_streaming_terminates_on_finish_reason_without_done(self):
+        client = LocalAIClient(config_manager=self.mock_config, backoff_factor=0)
+        mock_resp = mock.MagicMock()
+        mock_resp.status_code = 200
+        # Simulated generator where lines after finish_reason should NOT be read
+        sse_lines = [
+            'data: {"choices":[{"delta":{"content":"Line 1"}}]}',
+            'data: {"choices":[{"delta":{"content":" Line 2"},"finish_reason":"stop"}]}',
+            'data: {"choices":[{"delta":{"content":" Should NOT appear"}}]}',
+        ]
+        mock_resp.iter_lines.return_value = sse_lines
+
+        with mock.patch.object(client.session, "request", return_value=mock_resp):
+            tokens = list(client.chat_completion([{"role": "user", "content": "test"}], stream=True))
+            self.assertEqual(tokens, ["Line 1", " Line 2"])
+
+    def test_chat_completion_streaming_terminates_on_separate_finish_reason_chunk(self):
+        client = LocalAIClient(config_manager=self.mock_config, backoff_factor=0)
+        mock_resp = mock.MagicMock()
+        mock_resp.status_code = 200
+        sse_lines = [
+            'data: {"choices":[{"delta":{"content":"Part 1"}}]}',
+            'data: {"choices":[{"delta":{"content":null},"finish_reason":"stop"}]}',
+            'data: {"choices":[{"delta":{"content":" Should NOT appear"}}]}',
+        ]
+        mock_resp.iter_lines.return_value = sse_lines
+
+        with mock.patch.object(client.session, "request", return_value=mock_resp):
+            tokens = list(client.chat_completion([{"role": "user", "content": "test"}], stream=True))
+            self.assertEqual(tokens, ["Part 1"])
+
+    def test_chat_completion_streaming_recovers_gracefully_on_timeout_after_tokens(self):
+        client = LocalAIClient(config_manager=self.mock_config, backoff_factor=0)
+        mock_resp = mock.MagicMock()
+        mock_resp.status_code = 200
+
+        def stream_with_timeout():
+            yield 'data: {"choices":[{"delta":{"content":"Generated token"}}]}'
+            raise requests.exceptions.ReadTimeout("Socket read timed out waiting for more data")
+
+        mock_resp.iter_lines.return_value = stream_with_timeout()
+
+        with mock.patch.object(client.session, "request", return_value=mock_resp):
+            tokens = list(client.chat_completion([{"role": "user", "content": "test"}], stream=True))
+            self.assertEqual(tokens, ["Generated token"])
+
+    def test_chat_completion_streaming_handles_flexible_done_tokens(self):
+        client = LocalAIClient(config_manager=self.mock_config, backoff_factor=0)
+        mock_resp = mock.MagicMock()
+        mock_resp.status_code = 200
+        sse_lines = [
+            'data: {"choices":[{"delta":{"content":"Token"}}]}',
+            'data:[DONE]',
+            'data: {"choices":[{"delta":{"content":" Extra"}}]}',
+        ]
+        mock_resp.iter_lines.return_value = sse_lines
+
+        with mock.patch.object(client.session, "request", return_value=mock_resp):
+            tokens = list(client.chat_completion([{"role": "user", "content": "test"}], stream=True))
+            self.assertEqual(tokens, ["Token"])
+
     def test_health_check_healthy(self):
         client = LocalAIClient(config_manager=self.mock_config)
         mock_resp = mock.MagicMock()

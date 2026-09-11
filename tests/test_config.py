@@ -91,6 +91,12 @@ class TestConfigManager(unittest.TestCase):
         st = os.stat(self.config_file)
         self.assertEqual(st.st_mode & 0o777, 0o644)
 
+    def test_set_timeout_persists(self):
+        self.manager.set_timeout(180)
+        self.assertEqual(self.manager.get_timeout(), 180)
+        reloaded = ConfigManager(config_path=self.config_file)
+        self.assertEqual(reloaded.get_timeout(), 180)
+
 
 if __name__ == '__main__':
     unittest.main()

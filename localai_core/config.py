@@ -15,7 +15,7 @@ DEFAULT_URL: str = "http://94.130.18.206:8080"
 DEFAULT_MODEL: str = "Hermes-3-Llama-3.2-3B-Q4_K_M.gguf"
 DEFAULT_CONFIG_DIR: str = "/home/deck/.config/local-ai"
 DEFAULT_CONFIG_PATH: str = os.path.join(DEFAULT_CONFIG_DIR, "config.json")
-DEFAULT_TIMEOUT: int = 60
+DEFAULT_TIMEOUT: int = 120
 DEFAULT_MAX_RETRIES: int = 3
 
 DEFAULT_CONFIG: Dict[str, Any] = {
@@ -170,6 +170,12 @@ class ConfigManager:
         """Update and persist the default model name."""
         config = self.load_config()
         config["default_model"] = new_model.strip()
+        self.save_config(config)
+
+    def set_timeout(self, timeout: int) -> None:
+        """Update and persist the request timeout setting in seconds."""
+        config = self.load_config()
+        config["timeout"] = max(1, int(timeout))
         self.save_config(config)
 
     def get_timeout(self) -> int:

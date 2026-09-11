@@ -241,8 +241,10 @@ class LocalAIClient:
     def _stream_chat_completion(self, payload: Dict[str, Any]) -> Iterator[str]:
         """Stream SSE response chunks from /v1/chat/completions, yielding tokens."""
         url = self._get_endpoint("/v1/chat/completions")
-        resp = self._request_with_retry("POST", url, json=payload, stream=True)
+        timeout_arg = (15.0, float(self.timeout))
+        resp = self._request_with_retry("POST", url, json=payload, stream=True, timeout=timeout_arg)
 
+        yielded_any = False
         try:
             for raw_line in resp.iter_lines(decode_unicode=True):
                 if not raw_line:
@@ -258,7 +260,7 @@ class LocalAIClient:
 
                 if line.startswith("data:"):
                     data_str = line[5:].strip()
-                    if data_str == "[DONE]":
+                    if data_str.strip().strip("\"'").upper() in ("[DONE]", "DONE"):
                         break
                     if not data_str:
                         continue
@@ -270,11 +272,25 @@ class LocalAIClient:
 
                     choices = chunk.get("choices", [])
                     if choices and isinstance(choices, list):
-                        delta = choices[0].get("delta", {})
-                        if isinstance(delta, dict):
-                            content = delta.get("content")
+                        choice = choices[0]
+                        if isinstance(choice, dict):
+                            delta = choice.get("delta", {})
+                            content = None
+                            if isinstance(delta, dict):
+                                content = delta.get("content")
+                            elif isinstance(choice.get("text"), str):
+                                content = choice.get("text")
+
                             if content is not None and isinstance(content, str) and content:
+                                yielded_any = True
                                 yield content
+
+                            finish_reason = choice.get("finish_reason")
+                            if finish_reason:
+                                break
+        except (RequestException, Timeout):
+            if not yielded_any:
+                raise
         finally:
             resp.close()
 
