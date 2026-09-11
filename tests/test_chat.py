@@ -1,5 +1,6 @@
 import io
 import os
+import shutil
 import tempfile
 import unittest
 from unittest import mock
@@ -117,11 +118,19 @@ class TestRunPrompt(unittest.TestCase):
 
 class TestChatSession(unittest.TestCase):
     def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.hist_file = os.path.join(self.temp_dir, "history")
+        self.hist_patcher = mock.patch("localai_core.chat.DEFAULT_HISTORY_PATH", self.hist_file)
+        self.hist_patcher.start()
         self.mock_client = mock.create_autospec(LocalAIClient, instance=True)
         self.mock_client.base_url = "http://94.130.18.206:8080"
         self.mock_config = mock.MagicMock()
         self.mock_config.get_default_model.return_value = "default-llama"
         self.mock_client.config_manager = self.mock_config
+
+    def tearDown(self):
+        self.hist_patcher.stop()
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_init_with_defaults(self):
         session = ChatSession(client=self.mock_client)
@@ -368,11 +377,19 @@ class TestChatSession(unittest.TestCase):
 
 class TestChatRepl(unittest.TestCase):
     def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.hist_file = os.path.join(self.temp_dir, "history")
+        self.hist_patcher = mock.patch("localai_core.chat.DEFAULT_HISTORY_PATH", self.hist_file)
+        self.hist_patcher.start()
         self.mock_client = mock.create_autospec(LocalAIClient, instance=True)
         self.mock_client.base_url = "http://94.130.18.206:8080"
         self.mock_config = mock.MagicMock()
         self.mock_config.get_default_model.return_value = "default-llama"
         self.mock_client.config_manager = self.mock_config
+
+    def tearDown(self):
+        self.hist_patcher.stop()
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_repl_exits_on_quit_command(self):
         in_buf = io.StringIO("/quit\n")
@@ -472,6 +489,31 @@ class TestChatRepl(unittest.TestCase):
             session = ChatSession(client=self.mock_client, hist_file=hist_path)
             session.save_history()
             self.assertTrue(os.path.exists(hist_path))
+
+    @mock.patch("readline.set_history_length")
+    def test_history_length_capped_to_1000(self, mock_set_len):
+        session = ChatSession(client=self.mock_client, hist_file=self.hist_file)
+        mock_set_len.assert_called_with(1000)
+        session.save_history()
+        self.assertGreaterEqual(mock_set_len.call_count, 2)
+
+    def test_send_message_stream_interrupted_preserves_tokens_and_outputs_error(self):
+        def interrupted_stream():
+            yield "Partial "
+            yield "token"
+            raise LocalAIConnectionError("Stream interrupted: Socket read timed out")
+
+        self.mock_client.chat_completion.return_value = interrupted_stream()
+        out_buf = io.StringIO()
+        session = ChatSession(client=self.mock_client, out_stream=out_buf, hist_file=self.hist_file)
+
+        with self.assertRaises(LocalAIConnectionError):
+            session.send_message("What is the weather?")
+
+        out = out_buf.getvalue()
+        self.assertIn("Partial token", out)
+        self.assertIn("Error: Stream interrupted: Socket read timed out", out)
+        self.assertEqual(session.messages[-1], {"role": "assistant", "content": "Partial token"})
 
 
 if __name__ == "__main__":

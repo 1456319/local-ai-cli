@@ -240,7 +240,7 @@ class TestLocalAIClient(unittest.TestCase):
             tokens = list(client.chat_completion([{"role": "user", "content": "test"}], stream=True))
             self.assertEqual(tokens, ["Part 1"])
 
-    def test_chat_completion_streaming_recovers_gracefully_on_timeout_after_tokens(self):
+    def test_chat_completion_streaming_raises_on_timeout_after_tokens(self):
         client = LocalAIClient(config_manager=self.mock_config, backoff_factor=0)
         mock_resp = mock.MagicMock()
         mock_resp.status_code = 200
@@ -252,8 +252,27 @@ class TestLocalAIClient(unittest.TestCase):
         mock_resp.iter_lines.return_value = stream_with_timeout()
 
         with mock.patch.object(client.session, "request", return_value=mock_resp):
-            tokens = list(client.chat_completion([{"role": "user", "content": "test"}], stream=True))
-            self.assertEqual(tokens, ["Generated token"])
+            stream = client.chat_completion([{"role": "user", "content": "test"}], stream=True)
+            first = next(stream)
+            self.assertEqual(first, "Generated token")
+            with self.assertRaises(LocalAIConnectionError):
+                next(stream)
+
+    def test_chat_completion_streaming_raises_on_early_timeout(self):
+        client = LocalAIClient(config_manager=self.mock_config, backoff_factor=0)
+        mock_resp = mock.MagicMock()
+        mock_resp.status_code = 200
+
+        def stream_early_timeout():
+            raise requests.exceptions.ReadTimeout("Socket timed out before any data")
+            yield "unused"
+
+        mock_resp.iter_lines.return_value = stream_early_timeout()
+
+        with mock.patch.object(client.session, "request", return_value=mock_resp):
+            stream = client.chat_completion([{"role": "user", "content": "test"}], stream=True)
+            with self.assertRaises(LocalAIConnectionError):
+                list(stream)
 
     def test_chat_completion_streaming_handles_flexible_done_tokens(self):
         client = LocalAIClient(config_manager=self.mock_config, backoff_factor=0)

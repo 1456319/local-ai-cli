@@ -288,9 +288,8 @@ class LocalAIClient:
                             finish_reason = choice.get("finish_reason")
                             if finish_reason:
                                 break
-        except (RequestException, Timeout):
-            if not yielded_any:
-                raise
+        except RequestException as exc:
+            raise LocalAIConnectionError(f"Stream interrupted: {exc}") from exc
         finally:
             resp.close()
 

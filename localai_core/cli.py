@@ -13,6 +13,17 @@ from .config import ConfigManager
 from .runner import run_prompt
 
 
+def _positive_int(value: str) -> int:
+    """Parse and validate that an argument is a positive integer."""
+    try:
+        ival = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid integer value: {value!r}")
+    if ival <= 0:
+        raise argparse.ArgumentTypeError(f"Timeout must be a positive integer >= 1 (got {ival})")
+    return ival
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build and return top-level ArgumentParser with subcommands and flags."""
     parser = argparse.ArgumentParser(
@@ -32,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-T",
         "--timeout",
-        type=int,
+        type=_positive_int,
         help="Override HTTP request and streaming timeout in seconds",
     )
 
@@ -72,7 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser_run.add_argument(
         "-T",
         "--timeout",
-        type=int,
+        type=_positive_int,
         default=argparse.SUPPRESS,
         help="Request and streaming timeout in seconds",
     )
@@ -95,7 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser_chat.add_argument(
         "-T",
         "--timeout",
-        type=int,
+        type=_positive_int,
         default=argparse.SUPPRESS,
         help="Request and streaming timeout in seconds",
     )
@@ -129,7 +140,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser_goal.add_argument(
         "-T",
         "--timeout",
-        type=int,
+        type=_positive_int,
         default=argparse.SUPPRESS,
         help="Request and streaming timeout in seconds",
     )
@@ -183,7 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser_set_timeout.add_argument(
         "timeout",
-        type=int,
+        type=_positive_int,
         help="New timeout in seconds",
     )
 

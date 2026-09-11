@@ -60,6 +60,7 @@ class ChatSession:
         """Load history from hist_file if it exists."""
         try:
             import readline
+            readline.set_history_length(1000)
             if os.path.exists(self.hist_file):
                 readline.read_history_file(self.hist_file)
         except Exception:
@@ -69,6 +70,7 @@ class ChatSession:
         """Save history to hist_file on exit."""
         try:
             import readline
+            readline.set_history_length(1000)
             hist_dir = os.path.dirname(self.hist_file)
             if hist_dir and not os.path.exists(hist_dir):
                 os.makedirs(hist_dir, exist_ok=True)
