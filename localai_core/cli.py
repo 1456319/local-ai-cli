@@ -73,6 +73,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-T",
         "--timeout",
         type=int,
+        default=argparse.SUPPRESS,
         help="Request and streaming timeout in seconds",
     )
 
@@ -95,6 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-T",
         "--timeout",
         type=int,
+        default=argparse.SUPPRESS,
         help="Request and streaming timeout in seconds",
     )
 
@@ -128,6 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-T",
         "--timeout",
         type=int,
+        default=argparse.SUPPRESS,
         help="Request and streaming timeout in seconds",
     )
 

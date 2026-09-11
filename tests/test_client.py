@@ -270,6 +270,20 @@ class TestLocalAIClient(unittest.TestCase):
             tokens = list(client.chat_completion([{"role": "user", "content": "test"}], stream=True))
             self.assertEqual(tokens, ["Token"])
 
+    def test_chat_completion_streaming_choice_text_fallback(self):
+        client = LocalAIClient(config_manager=self.mock_config, backoff_factor=0)
+        mock_resp = mock.MagicMock()
+        mock_resp.status_code = 200
+        sse_lines = [
+            'data: {"choices":[{"text":"Hello from text field"}]}',
+            'data: [DONE]',
+        ]
+        mock_resp.iter_lines.return_value = sse_lines
+
+        with mock.patch.object(client.session, "request", return_value=mock_resp):
+            tokens = list(client.chat_completion([{"role": "user", "content": "test"}], stream=True))
+            self.assertEqual(tokens, ["Hello from text field"])
+
     def test_health_check_healthy(self):
         client = LocalAIClient(config_manager=self.mock_config)
         mock_resp = mock.MagicMock()

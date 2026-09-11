@@ -274,11 +274,11 @@ class LocalAIClient:
                     if choices and isinstance(choices, list):
                         choice = choices[0]
                         if isinstance(choice, dict):
-                            delta = choice.get("delta", {})
+                            delta = choice.get("delta")
                             content = None
                             if isinstance(delta, dict):
                                 content = delta.get("content")
-                            elif isinstance(choice.get("text"), str):
+                            if content is None and isinstance(choice.get("text"), str):
                                 content = choice.get("text")
 
                             if content is not None and isinstance(content, str) and content:

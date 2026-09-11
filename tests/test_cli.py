@@ -406,6 +406,26 @@ class TestCLIMain(unittest.TestCase):
                 _, kwargs = mock_init.call_args
                 self.assertEqual(kwargs.get("timeout"), 240)
 
+        with patch.object(LocalAIClient, "__init__", return_value=None) as mock_init:
+            with patch("localai_core.cli.start_chat_repl"):
+                main(
+                    ["--timeout", "180", "-c", self.config_path, "chat"],
+                    out_stream=self.out_stream,
+                    err_stream=self.err_stream,
+                )
+                _, kwargs = mock_init.call_args
+                self.assertEqual(kwargs.get("timeout"), 180)
+
+        with patch.object(LocalAIClient, "__init__", return_value=None) as mock_init:
+            with patch("localai_core.cli.start_chat_repl"):
+                main(
+                    ["-c", self.config_path, "chat", "--timeout", "90"],
+                    out_stream=self.out_stream,
+                    err_stream=self.err_stream,
+                )
+                _, kwargs = mock_init.call_args
+                self.assertEqual(kwargs.get("timeout"), 90)
+
     def test_config_set_timeout(self):
         code = main(
             ["-c", self.config_path, "config", "set-timeout", "150"],
